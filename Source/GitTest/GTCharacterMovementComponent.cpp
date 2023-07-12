@@ -8,6 +8,18 @@
 #include "Engine/NetworkObjectList.h"
 #include "GameFramework/Character.h"
 
+UGTCharacterMovementComponent::UGTCharacterMovementComponent()
+{
+	
+	PrimaryComponentTick.bCanEverTick = false;
+}
+
+void UGTCharacterMovementComponent::BeginPlay()
+{
+	Super::BeginPlay();
+	SetComponentTickEnabled(false);
+}
+
 void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 {
 	//Super::PerformMovement(DeltaTime);
@@ -546,4 +558,154 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 	{
 		StartFalling(Iterations, deltaTime, deltaTime, DeltaMove, OldLocation);
 	}
+}
+
+void UGTCharacterMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+
+	
+}
+
+void UGTCharacterMovementComponent::UpdateMovement(float DeltaTime)
+{
+	FVector InputVector = FVector::ZeroVector;
+	bool bUsingAsyncTick = (CharacterMovementCVars::AsyncCharacterMovement == 1) && IsAsyncCallbackRegistered();
+	if (!bUsingAsyncTick)
+	{
+		// Do not consume input if simulating asynchronously, we will consume input when filling out async inputs.
+		InputVector = ConsumeInputVector();
+	}
+
+	if (!HasValidData() || ShouldSkipUpdate(DeltaTime))
+	{
+		return;
+	}
+
+	// Super tick may destroy/invalidate CharacterOwner or UpdatedComponent, so we need to re-check.
+	if (!HasValidData())
+	{
+		return;
+	}
+
+	if (bUsingAsyncTick)
+	{
+		check(CharacterOwner && CharacterOwner->GetMesh());
+		USkeletalMeshComponent* CharacterMesh = CharacterOwner->GetMesh();
+		if (CharacterMesh->ShouldTickPose())
+		{
+			const bool bWasPlayingRootMotion = CharacterOwner->IsPlayingRootMotion();
+
+			CharacterMesh->TickPose(DeltaTime, true);
+			// We are simulating character movement on physics thread, do not tick movement.
+			const bool bIsPlayingRootMotion = CharacterOwner->IsPlayingRootMotion();
+			if (bIsPlayingRootMotion || bWasPlayingRootMotion)
+			{
+				FRootMotionMovementParams RootMotion = CharacterMesh->ConsumeRootMotion();
+				if (RootMotion.bHasRootMotion)
+				{
+					RootMotion.ScaleRootMotionTranslation(CharacterOwner->GetAnimRootMotionTranslationScale());
+					RootMotionParams.Accumulate(RootMotion);
+				}
+			}
+		}
+
+		AccumulateRootMotionForAsync(DeltaTime, AsyncRootMotion);
+
+		return;
+	}
+
+	// See if we fell out of the world.
+	const bool bIsSimulatingPhysics = UpdatedComponent->IsSimulatingPhysics();
+	if (CharacterOwner->GetLocalRole() == ROLE_Authority && (!bCheatFlying || bIsSimulatingPhysics) && !CharacterOwner->CheckStillInWorld())
+	{
+		return;
+	}
+
+	// We don't update if simulating physics (eg ragdolls).
+	if (bIsSimulatingPhysics)
+	{
+		// Update camera to ensure client gets updates even when physics move it far away from point where simulation started
+		if (CharacterOwner->GetLocalRole() == ROLE_AutonomousProxy && IsNetMode(NM_Client))
+		{
+			MarkForClientCameraUpdate();
+		}
+
+		ClearAccumulatedForces();
+		return;
+	}
+
+	AvoidanceLockTimer -= DeltaTime;
+
+	if (CharacterOwner->GetLocalRole() > ROLE_SimulatedProxy)
+	{
+
+		// If we are a client we might have received an update from the server.
+		const bool bIsClient = (CharacterOwner->GetLocalRole() == ROLE_AutonomousProxy && IsNetMode(NM_Client));
+		if (bIsClient)
+		{
+			FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+			if (ClientData && ClientData->bUpdatePosition)
+			{
+				ClientUpdatePositionAfterServerUpdate();
+			}
+		}
+
+		// Perform input-driven move for any locally-controlled character, and also
+		// allow animation root motion or physics to move characters even if they have no controller
+		const bool bShouldPerformControlledCharMove = CharacterOwner->IsLocallyControlled() 
+													  || (!CharacterOwner->Controller && bRunPhysicsWithNoController)		
+													  || (!CharacterOwner->Controller && CharacterOwner->IsPlayingRootMotion());
+		
+		if (bShouldPerformControlledCharMove)
+		{
+			ControlledCharacterMove(InputVector, DeltaTime);
+
+			const bool bIsaListenServerAutonomousProxy = CharacterOwner->IsLocallyControlled()
+													 	 && (CharacterOwner->GetRemoteRole() == ROLE_AutonomousProxy);
+
+			if (bIsaListenServerAutonomousProxy)
+			{
+				ServerAutonomousProxyTick(DeltaTime);
+			}
+		}
+		else if (CharacterOwner->GetRemoteRole() == ROLE_AutonomousProxy)
+		{
+			// Server ticking for remote client.
+			// Between net updates from the client we need to update position if based on another object,
+			// otherwise the object will move on intermediate frames and we won't follow it.
+			MaybeUpdateBasedMovement(DeltaTime);
+			MaybeSaveBaseLocation();
+
+			ServerAutonomousProxyTick(DeltaTime);
+
+			static int32 NetEnableListenServerSmoothing = 1;
+			// Smooth on listen server for local view of remote clients. We may receive updates at a rate different than our own tick rate.
+			if (NetEnableListenServerSmoothing && !bNetworkSmoothingComplete && IsNetMode(NM_ListenServer))
+			{
+				SmoothClientPosition(DeltaTime);
+			}
+		}
+	}
+	else if (CharacterOwner->GetLocalRole() == ROLE_SimulatedProxy)
+	{
+		if (bShrinkProxyCapsule)
+		{
+			AdjustProxyCapsuleSize();
+		}
+		SimulatedTick(DeltaTime);
+	}
+
+	if (bUseRVOAvoidance)
+	{
+		UpdateDefaultAvoidance();
+	}
+
+	if (bEnablePhysicsInteraction)
+	{
+		ApplyDownwardForce(DeltaTime);
+		ApplyRepulsionForce(DeltaTime);
+	}
+
 }

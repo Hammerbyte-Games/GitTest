@@ -14,7 +14,7 @@ class GITTEST_API AGTPawnMovementManager : public AActor
 public:
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<APawn*> PawnMovements;
+	TArray<ACharacter*> PawnMovements;
 	
 	AGTPawnMovementManager();
 	virtual void Tick(float DeltaTime) override;

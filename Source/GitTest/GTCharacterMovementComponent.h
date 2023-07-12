@@ -14,6 +14,15 @@ class GITTEST_API UGTCharacterMovementComponent : public UCharacterMovementCompo
 {
 	GENERATED_BODY()
 
+public:
+	UGTCharacterMovementComponent();
 	virtual void PerformMovement(float DeltaTime) override;
 	virtual void PhysNavWalking(float deltaTime, int32 Iterations) override;
+	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+
+	void UpdateMovement(float DeltaTime);
+
+protected:
+	virtual void BeginPlay() override;
+
 };

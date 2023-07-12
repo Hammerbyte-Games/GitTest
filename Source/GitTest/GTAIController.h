@@ -14,5 +14,8 @@ class GITTEST_API AGTAIController : public AAIController
 {
 	GENERATED_BODY()
 
+	AGTAIController();
 	virtual void Tick(float DeltaSeconds) override;
+protected:
+	virtual void BeginPlay() override;
 };
