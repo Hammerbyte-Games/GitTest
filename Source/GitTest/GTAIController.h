@@ -16,6 +16,7 @@ class GITTEST_API AGTAIController : public AAIController
 
 	AGTAIController();
 	virtual void Tick(float DeltaSeconds) override;
+	virtual void UpdateControlRotation(float DeltaTime, bool bUpdatePawn) override;
 protected:
 	virtual void BeginPlay() override;
 };

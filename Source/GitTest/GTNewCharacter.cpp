@@ -25,6 +25,10 @@ void AGTNewCharacter::BeginPlay()
 	GetMesh()->bComputeFastLocalBounds = true;
 	GetArrowComponent()->bComputeBoundsOnceForGame = true;
 	GetArrowComponent()->bComputeFastLocalBounds = true;
+	//GetRootComponent()->SkipUpdateOverlapsOptimEnabled = 1;
+	//GetRootComponent()->SetShouldUpdatePhysicsVolume(false);
+	GetRootComponent()->SetShouldUpdatePhysicsVolume(false);
+	//GetArrowComponent()->SetHiddenInGame(false);
 }
 
 void AGTNewCharacter::Tick(float DeltaTime)

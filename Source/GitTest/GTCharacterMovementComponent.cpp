@@ -7,6 +7,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Engine/NetworkObjectList.h"
 #include "GameFramework/Character.h"
+#include "Kismet/KismetMathLibrary.h"
 
 UGTCharacterMovementComponent::UGTCharacterMovementComponent()
 {
@@ -84,7 +85,7 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 	{
 		// Scoped updates can improve performance of multiple MoveComponent calls.
 		{
-			FScopedMovementUpdate ScopedMovementUpdate(UpdatedComponent, bEnableScopedMovementUpdates ? EScopedUpdate::DeferredUpdates : EScopedUpdate::ImmediateUpdates);
+			//FScopedMovementUpdate ScopedMovementUpdate(UpdatedComponent, bEnableScopedMovementUpdates ? EScopedUpdate::DeferredUpdates : EScopedUpdate::ImmediateUpdates);
 
 			MaybeUpdateBasedMovement(DeltaSeconds);
 
@@ -276,6 +277,7 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 			CharacterOwner->ClearJumpInput(DeltaSeconds);
 			NumJumpApexAttempts = 0;
 
+			MovementMode = EMovementMode::MOVE_NavWalking;
 			// change position
 			StartNewPhysics(DeltaSeconds, 0);
 
@@ -541,8 +543,11 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 
 		if (!AdjustedDelta.IsNearlyZero())
 		{
+			//MoveComponentFlags = EMoveComponentFlags::MOVECOMP_SkipPhysicsMove;
 			FHitResult HitResult;
-			SafeMoveUpdatedComponent(AdjustedDelta, UpdatedComponent->GetComponentQuat(), bSweepWhileNavWalking, HitResult);
+			FVector OwnerLocation = UpdatedComponent->GetOwner()->GetActorLocation();
+			FRotator NewRotation = UKismetMathLibrary::FindLookAtRotation(FVector(OwnerLocation.X, OwnerLocation.Y, 100), FVector(CachedNavLocation.Location.X, CachedNavLocation.Location.Y, 100));
+			SafeMoveUpdatedComponent(AdjustedDelta, NewRotation/*UpdatedComponent->GetComponentQuat()*/, bSweepWhileNavWalking, HitResult);
 		}
 
 		// Update velocity to reflect actual move
@@ -560,8 +565,130 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 	}
 }
 
+void UGTCharacterMovementComponent::ControlledCharacterMove(const FVector& InputVector, float DeltaSeconds)
+{
+	//Super::ControlledCharacterMove(InputVector, DeltaSeconds);
+	{
+		//SCOPE_CYCLE_COUNTER(STAT_CharUpdateAcceleration);
+
+		// We need to check the jump state before adjusting input acceleration, to minimize latency
+		// and to make sure acceleration respects our potentially new falling state.
+		CharacterOwner->CheckJumpInput(DeltaSeconds);
+
+		// apply input to acceleration
+		Acceleration = ScaleInputAcceleration(ConstrainInputAcceleration(InputVector));
+		AnalogInputModifier = ComputeAnalogInputModifier();
+	}
+
+	if (CharacterOwner->GetLocalRole() == ROLE_Authority)
+	{
+		PerformMovement(DeltaSeconds);
+	}
+	else if (CharacterOwner->GetLocalRole() == ROLE_AutonomousProxy && IsNetMode(NM_Client))
+	{
+		ReplicateMoveToServer(DeltaSeconds, Acceleration);
+	}
+}
+
+void UGTCharacterMovementComponent::ApplyRootMotionToVelocity(float deltaTime)
+{
+	//Super::ApplyRootMotionToVelocity(deltaTime);
+	//SCOPE_CYCLE_COUNTER(STAT_CharacterMovementRootMotionSourceApply);
+
+	// Animation root motion is distinct from root motion sources right now and takes precedence
+	if( HasAnimRootMotion() && deltaTime > 0.f )
+	{
+		Velocity = ConstrainAnimRootMotionVelocity(AnimRootMotionVelocity, Velocity);
+		if (IsFalling())
+		{
+			Velocity += FVector(DecayingFormerBaseVelocity.X, DecayingFormerBaseVelocity.Y, 0.f);
+		}
+		return;
+	}
+
+	const FVector OldVelocity = Velocity;
+
+	bool bAppliedRootMotion = false;
+
+	// Apply override velocity
+	if( CurrentRootMotion.HasOverrideVelocity() )
+	{
+		CurrentRootMotion.AccumulateOverrideRootMotionVelocity(deltaTime, *CharacterOwner, *this, Velocity);
+		if (IsFalling())
+		{
+			Velocity += CurrentRootMotion.HasOverrideVelocityWithIgnoreZAccumulate() ? FVector(DecayingFormerBaseVelocity.X, DecayingFormerBaseVelocity.Y, 0.f) : DecayingFormerBaseVelocity;
+		}
+		bAppliedRootMotion = true;
+
+#if ROOT_MOTION_DEBUG
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
+		{
+			FString AdjustedDebugString = FString::Printf(TEXT("ApplyRootMotionToVelocity HasOverrideVelocity Velocity(%s)"),
+				*Velocity.ToCompactString());
+			RootMotionSourceDebug::PrintOnScreen(*CharacterOwner, AdjustedDebugString);
+		}
+#endif
+	}
+
+	// Next apply additive root motion
+	if( CurrentRootMotion.HasAdditiveVelocity() )
+	{
+		CurrentRootMotion.LastPreAdditiveVelocity = Velocity; // Save off pre-additive Velocity for restoration next tick
+		CurrentRootMotion.AccumulateAdditiveRootMotionVelocity(deltaTime, *CharacterOwner, *this, Velocity);
+		CurrentRootMotion.bIsAdditiveVelocityApplied = true; // Remember that we have it applied
+		bAppliedRootMotion = true;
+
+#if ROOT_MOTION_DEBUG
+		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
+		{
+			FString AdjustedDebugString = FString::Printf(TEXT("ApplyRootMotionToVelocity HasAdditiveVelocity Velocity(%s) LastPreAdditiveVelocity(%s)"),
+				*Velocity.ToCompactString(), *CurrentRootMotion.LastPreAdditiveVelocity.ToCompactString());
+			RootMotionSourceDebug::PrintOnScreen(*CharacterOwner, AdjustedDebugString);
+		}
+#endif
+	}
+
+	// Switch to Falling if we have vertical velocity from root motion so we can lift off the ground
+	const FVector AppliedVelocityDelta = Velocity - OldVelocity;
+	if( bAppliedRootMotion && AppliedVelocityDelta.Z != 0.f && IsMovingOnGround() )
+	{
+		float LiftoffBound;
+		if( CurrentRootMotion.LastAccumulatedSettings.HasFlag(ERootMotionSourceSettingsFlags::UseSensitiveLiftoffCheck) )
+		{
+			// Sensitive bounds - "any positive force"
+			LiftoffBound = UE_SMALL_NUMBER;
+		}
+		else
+		{
+			// Default bounds - the amount of force gravity is applying this tick
+			LiftoffBound = FMath::Max(-GetGravityZ() * deltaTime, UE_SMALL_NUMBER);
+		}
+
+		if( AppliedVelocityDelta.Z > LiftoffBound )
+		{
+			SetMovementMode(MOVE_Falling);
+		}
+	}
+}
+
+void UGTCharacterMovementComponent::CallMovementUpdateDelegate(float DeltaTime, const FVector& OldLocation,
+                                                               const FVector& OldVelocity)
+{
+	//Super::CallMovementUpdateDelegate(DeltaSeconds, OldLocation, OldVelocity);
+	//SCOPE_CYCLE_COUNTER(STAT_CharMoveUpdateDelegate);
+
+	// Update component velocity in case events want to read it
+	UpdateComponentVelocity();
+
+	// Delegate (for blueprints)
+	if (CharacterOwner)
+	{
+		CharacterOwner->OnCharacterMovementUpdated.Broadcast(DeltaTime, OldLocation, OldVelocity);
+	}
+}
+
 void UGTCharacterMovementComponent::TickComponent(float DeltaTime, ELevelTick TickType,
-	FActorComponentTickFunction* ThisTickFunction)
+                                                  FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
