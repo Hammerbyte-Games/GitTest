@@ -6,6 +6,7 @@
 #include "GameFramework/Actor.h"
 #include "GTPawnMovementManager.generated.h"
 
+class UGTCharacterMovementComponent;
 UCLASS()
 class GITTEST_API AGTPawnMovementManager : public AActor
 {
@@ -15,6 +16,9 @@ public:
 
 	UPROPERTY(BlueprintReadWrite)
 	TArray<ACharacter*> PawnMovements;
+
+	UPROPERTY(BlueprintReadWrite)
+	TArray<UGTCharacterMovementComponent*> MovementComponents;
 	
 	AGTPawnMovementManager();
 	virtual void Tick(float DeltaTime) override;

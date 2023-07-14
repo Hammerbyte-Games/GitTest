@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GTPawnMovementManager.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GTCharacterMovementComponent.generated.h"
 
@@ -27,5 +28,10 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+private:
+	UPROPERTY()
+	AGTPawnMovementManager* PawnMovementManager;
 
 };

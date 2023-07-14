@@ -4,7 +4,6 @@
 #include "GTPawnMovementManager.h"
 
 #include "GTCharacterMovementComponent.h"
-#include "GTPawnMovementComponent.h"
 #include "GameFramework/Character.h"
 
 AGTPawnMovementManager::AGTPawnMovementManager()
@@ -23,12 +22,17 @@ void AGTPawnMovementManager::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	for (const auto PawnMovement : PawnMovements)
+	/*for (const auto PawnMovement : PawnMovements)
 	{
 		if(UGTCharacterMovementComponent* MovementComponent = Cast<UGTCharacterMovementComponent>(PawnMovement->GetComponentByClass(UGTCharacterMovementComponent::StaticClass())))
 		{
 			MovementComponent->UpdateMovement(DeltaTime);
 		}
+	}*/
+
+	for (const auto MovementComponent : MovementComponents)
+	{
+		MovementComponent->UpdateMovement(DeltaTime);
 	}
 }
 

@@ -3,10 +3,12 @@
 
 #include "GTCharacterMovementComponent.h"
 
+#include "GTPawnMovementManager.h"
 #include "AI/Navigation/NavigationDataInterface.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/NetworkObjectList.h"
 #include "GameFramework/Character.h"
+#include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 
 UGTCharacterMovementComponent::UGTCharacterMovementComponent()
@@ -19,6 +21,32 @@ void UGTCharacterMovementComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	SetComponentTickEnabled(false);
+
+	TArray<AActor*> Actors;
+	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AGTPawnMovementManager::StaticClass(), Actors);
+
+	if(IsValid(Actors[0]))
+	{
+		if(AGTPawnMovementManager* MovementManager = Cast<AGTPawnMovementManager>(Actors[0]))
+		{
+			PawnMovementManager = MovementManager;
+			MovementManager->MovementComponents.Add(this);
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("The movement manager has not been found") );
+	}
+}
+
+void UGTCharacterMovementComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	if(IsValid(PawnMovementManager))
+	{
+		PawnMovementManager->MovementComponents.Remove(this);
+	}
 }
 
 void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
