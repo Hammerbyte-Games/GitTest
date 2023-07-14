@@ -2,7 +2,6 @@
 
 
 #include "GTNewCharacter.h"
-
 #include "GTCharacterMovementComponent.h"
 #include "Components/ArrowComponent.h"
 
@@ -10,10 +9,12 @@ AGTNewCharacter::AGTNewCharacter(const FObjectInitializer& ObjectInitializer) :
 Super(ObjectInitializer.SetDefaultSubobjectClass<UGTCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
  	PrimaryActorTick.bCanEverTick = false;
-	GetMesh()->PrimaryComponentTick.bCanEverTick = false;
 	
+	GetMesh()->PrimaryComponentTick.bCanEverTick = false;
 	GetMesh()->bUseAttachParentBound = true;
+	
 	GetCharacterMovement()->PrimaryComponentTick.bCanEverTick = false;
+	
 	GetArrowComponent()->bUseAttachParentBound = true;
 	GetArrowComponent()->PrimaryComponentTick.bCanEverTick = false;
 }
@@ -21,25 +22,12 @@ Super(ObjectInitializer.SetDefaultSubobjectClass<UGTCharacterMovementComponent>(
 void AGTNewCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	
 	GetMesh()->bComputeBoundsOnceForGame = true;
 	GetMesh()->bComputeFastLocalBounds = true;
+	
 	GetArrowComponent()->bComputeBoundsOnceForGame = true;
 	GetArrowComponent()->bComputeFastLocalBounds = true;
-	//GetRootComponent()->SkipUpdateOverlapsOptimEnabled = 1;
-	//GetRootComponent()->SetShouldUpdatePhysicsVolume(false);
+	
 	GetRootComponent()->SetShouldUpdatePhysicsVolume(false);
-	//GetArrowComponent()->SetHiddenInGame(false);
 }
-
-void AGTNewCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
-
-}
-
-void AGTNewCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-{
-	Super::SetupPlayerInputComponent(PlayerInputComponent);
-
-}
-

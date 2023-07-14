@@ -6,9 +6,6 @@
 #include "GameFramework/PawnMovementComponent.h"
 #include "GTPawnMovementComponent.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class GITTEST_API UGTPawnMovementComponent : public UPawnMovementComponent
 {

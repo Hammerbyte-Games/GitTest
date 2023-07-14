@@ -6,16 +6,12 @@
 #include "AIController.h"
 #include "GTAIController.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class GITTEST_API AGTAIController : public AAIController
 {
 	GENERATED_BODY()
 
 	AGTAIController();
-	virtual void Tick(float DeltaSeconds) override;
 	virtual void UpdateControlRotation(float DeltaTime, bool bUpdatePawn) override;
 protected:
 	virtual void BeginPlay() override;

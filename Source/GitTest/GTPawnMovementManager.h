@@ -15,9 +15,6 @@ class GITTEST_API AGTPawnMovementManager : public AActor
 public:
 
 	UPROPERTY(BlueprintReadWrite)
-	TArray<ACharacter*> PawnMovements;
-
-	UPROPERTY(BlueprintReadWrite)
 	TArray<UGTCharacterMovementComponent*> MovementComponents;
 	
 	AGTPawnMovementManager();

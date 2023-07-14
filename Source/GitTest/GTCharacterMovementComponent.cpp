@@ -51,10 +51,6 @@ void UGTCharacterMovementComponent::EndPlay(const EEndPlayReason::Type EndPlayRe
 
 void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 {
-	//Super::PerformMovement(DeltaTime);
-
-	//SCOPE_CYCLE_COUNTER(STAT_CharacterMovementPerformMovement);
-
 	const UWorld* MyWorld = GetWorld();
 	if (!HasValidData() || MyWorld == nullptr)
 	{
@@ -113,8 +109,6 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 	{
 		// Scoped updates can improve performance of multiple MoveComponent calls.
 		{
-			//FScopedMovementUpdate ScopedMovementUpdate(UpdatedComponent, bEnableScopedMovementUpdates ? EScopedUpdate::DeferredUpdates : EScopedUpdate::ImmediateUpdates);
-
 			MaybeUpdateBasedMovement(DeltaSeconds);
 
 			// Clean up invalid RootMotion Sources.
@@ -124,8 +118,6 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 			const bool bHasRootMotionSources = HasRootMotionSources();
 			if (bHasRootMotionSources && !CharacterOwner->bClientUpdating && !CharacterOwner->bServerMoveIgnoreRootMotion)
 			{
-				//SCOPE_CYCLE_COUNTER(STAT_CharacterMovementRootMotionSourceCalculate);
-
 				const FVector VelocityBeforeCleanup = Velocity;
 				CurrentRootMotion.CleanUpInvalidRootMotion(DeltaSeconds, *CharacterOwner, *this);
 
@@ -215,7 +207,6 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 
 				// Generates root motion to be used this frame from sources other than animation
 				{
-					//SCOPE_CYCLE_COUNTER(STAT_CharacterMovementRootMotionSourceCalculate);
 					CurrentRootMotion.PrepareRootMotion(DeltaSeconds, *CharacterOwner, *this, true);
 				}
 
@@ -263,7 +254,6 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 					// We don't have animation root motion so we apply other sources
 					if( DeltaSeconds > 0.f )
 					{
-						//SCOPE_CYCLE_COUNTER(STAT_CharacterMovementRootMotionSourceApply);
 
 						const FVector VelocityBeforeOverride = Velocity;
 						FVector NewVelocity = Velocity;
@@ -297,10 +287,7 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 				RootMotionSourceDebug::PrintOnScreen(*CharacterOwner, AdjustedDebugString);
 			}
 	#endif
-
-			// NaN tracking
-			//devCode(ensureMsgf(!Velocity.ContainsNaN(), TEXT("UCharacterMovementComponent::PerformMovement: Velocity contains NaN (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
-
+			
 			// Clear jump input now, to allow movement events to trigger it for next update.
 			CharacterOwner->ClearJumpInput(DeltaSeconds);
 			NumJumpApexAttempts = 0;
@@ -382,15 +369,7 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 
 	// Call external post-movement events. These happen after the scoped movement completes in case the events want to use the current state of overlaps etc.
 	CallMovementUpdateDelegate(DeltaSeconds, OldLocation, OldVelocity);
-
-	/*if (CharacterMovementCVars::BasedMovementMode == 0)
-	{
-		SaveBaseLocation(); // behaviour before implementing this fix
-	}
-	else
-	{
-		MaybeSaveBaseLocation();
-	}*/
+	
 	MaybeSaveBaseLocation();
 	UpdateComponentVelocity();
 
@@ -445,9 +424,6 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 
 void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterations)
 {
-	//Super::PhysNavWalking(deltaTime, Iterations);
-	//SCOPE_CYCLE_COUNTER(STAT_CharPhysNavWalking);
-
 	if (deltaTime < MIN_TICK_TIME)
 	{
 		return;
@@ -464,14 +440,12 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 
 	// Ensure velocity is horizontal.
 	MaintainHorizontalGroundVelocity();
-	//devCode(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysNavWalking: Velocity contains NaN before CalcVelocity (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
-
+	
 	//bound acceleration
 	Acceleration.Z = 0.f;
 	if (!HasAnimRootMotion() && !CurrentRootMotion.HasOverrideVelocity())
 	{
 		CalcVelocity(deltaTime, GroundFriction, false, GetMaxBrakingDeceleration());
-		//devCode(ensureMsgf(!Velocity.ContainsNaN(), TEXT("PhysNavWalking: Velocity contains NaN after CalcVelocity (%s)\n%s"), *GetPathNameSafe(this), *Velocity.ToString()));
 	}
 
 	ApplyRootMotionToVelocity(deltaTime);
@@ -530,12 +504,9 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 	if (bDeltaMoveNearlyZero && bSameNavLocation)
 	{
 		DestNavLocation = CachedNavLocation;
-		//UE_LOG(LogNavMeshMovement, VeryVerbose, TEXT("%s using cached navmesh location! (bProjectNavMeshWalking = %d)"), *GetNameSafe(CharacterOwner), bProjectNavMeshWalking);
 	}
 	else
 	{
-		//SCOPE_CYCLE_COUNTER(STAT_CharNavProjectPoint);
-
 		// Start the trace from the Z location of the last valid trace.
 		// Otherwise if we are projecting our location to the underlying geometry and it's far above or below the navmesh,
 		// we'll follow that geometry's plane out of range of valid navigation.
@@ -560,7 +531,6 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 		FVector NewLocation(AdjustedDest.X, AdjustedDest.Y, DestNavLocation.Location.Z);
 		if (bProjectNavMeshWalking)
 		{
-			//SCOPE_CYCLE_COUNTER(STAT_CharNavProjectLocation);
 			const float TotalCapsuleHeight = CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * 2.0f;
 			const float UpOffset = TotalCapsuleHeight * FMath::Max(0.f, NavMeshProjectionHeightScaleUp);
 			const float DownOffset = TotalCapsuleHeight * FMath::Max(0.f, NavMeshProjectionHeightScaleDown);
@@ -571,7 +541,6 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 
 		if (!AdjustedDelta.IsNearlyZero())
 		{
-			//MoveComponentFlags = EMoveComponentFlags::MOVECOMP_SkipPhysicsMove;
 			FHitResult HitResult;
 			FVector OwnerLocation = UpdatedComponent->GetOwner()->GetActorLocation();
 			FRotator NewRotation = UKismetMathLibrary::FindLookAtRotation(FVector(OwnerLocation.X, OwnerLocation.Y, 100), FVector(CachedNavLocation.Location.X, CachedNavLocation.Location.Y, 100));
@@ -595,9 +564,7 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 
 void UGTCharacterMovementComponent::ControlledCharacterMove(const FVector& InputVector, float DeltaSeconds)
 {
-	//Super::ControlledCharacterMove(InputVector, DeltaSeconds);
 	{
-		//SCOPE_CYCLE_COUNTER(STAT_CharUpdateAcceleration);
 
 		// We need to check the jump state before adjusting input acceleration, to minimize latency
 		// and to make sure acceleration respects our potentially new falling state.
@@ -620,8 +587,6 @@ void UGTCharacterMovementComponent::ControlledCharacterMove(const FVector& Input
 
 void UGTCharacterMovementComponent::ApplyRootMotionToVelocity(float deltaTime)
 {
-	//Super::ApplyRootMotionToVelocity(deltaTime);
-	//SCOPE_CYCLE_COUNTER(STAT_CharacterMovementRootMotionSourceApply);
 
 	// Animation root motion is distinct from root motion sources right now and takes precedence
 	if( HasAnimRootMotion() && deltaTime > 0.f )
@@ -702,8 +667,6 @@ void UGTCharacterMovementComponent::ApplyRootMotionToVelocity(float deltaTime)
 void UGTCharacterMovementComponent::CallMovementUpdateDelegate(float DeltaTime, const FVector& OldLocation,
                                                                const FVector& OldVelocity)
 {
-	//Super::CallMovementUpdateDelegate(DeltaSeconds, OldLocation, OldVelocity);
-	//SCOPE_CYCLE_COUNTER(STAT_CharMoveUpdateDelegate);
 
 	// Update component velocity in case events want to read it
 	UpdateComponentVelocity();

@@ -10,17 +10,9 @@ AGTAIController::AGTAIController()
 	SetRootComponent(GetTransformComponent());
 }
 
-void AGTAIController::Tick(float DeltaSeconds)
-{
-	//Super::Tick(DeltaSeconds);
-
-	//UpdateControlRotation(DeltaSeconds, false);
-	
-}
 
 void AGTAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 {
-	//Super::UpdateControlRotation(DeltaTime, bUpdatePawn);
 	APawn* const MyPawn = GetPawn();
 	if (MyPawn)
 	{
@@ -62,6 +54,4 @@ void AGTAIController::BeginPlay()
 	Super::BeginPlay();
 	GetTransformComponent()->bComputeBoundsOnceForGame = true;
 	GetTransformComponent()->bComputeFastLocalBounds = true;
-
-	//ClearFlags(RF_NeedInitialization);
 }

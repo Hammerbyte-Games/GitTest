@@ -111,37 +111,8 @@ void UGTPawnMovementComponent::UpdateMovement(float DeltaTime)
 		LimitWorldBounds();
 		bPositionCorrected = false;
 
-		//float ZVelocity = 0;
-		//FHitResult HitResult;
-		//FCollisionQueryParams Params;
-		//if(GetWorld()->LineTraceSingleByObjectType(HitResult, GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() - FVector(0, 0, FloorDetection), TypeObjectsToDetectCollision, Params))
-		//{
-			//GEngine->AddOnScreenDebugMessage(-1, -1, FColor::Red, "+ VELOCITY");
-			//DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() - FVector(0, 0, FloorDetection), FColor::Red, false, -1, 0, 5);
-			//ZVelocity = 1 * ZVelocityAcceleration;
-		//}
-		//else
-		//{
-			//DrawDebugLine(GetWorld(), GetOwner()->GetActorLocation(), GetOwner()->GetActorLocation() - FVector(0, 0, FloorDetection), FColor::Red, false, -1, 0, 5);
-			//GEngine->AddOnScreenDebugMessage(-1, -1, FColor::White, "- VELOCITY");
-			//ZVelocity = -1 * ZVelocityAcceleration;
-		//}
-		/*if(ReachablePoint.Z > GetOwner()->GetActorLocation().Z)
-		{
-			ZVelocity = 1 * ZVelocityAcceleration;
-		}
-		else if(ReachablePoint.Z < GetOwner()->GetActorLocation().Z)
-		{
-			ZVelocity = -1 * ZVelocityAcceleration;
-		}
-		else if(FVector(0, 0, ReachablePoint.Z).Equals(FVector(0, 0, GetOwner()->GetActorLocation().Z), 0.1))
-		{
-			ZVelocity = 0;
-		}*/
-		// Move actor
-		//GEngine->AddOnScreenDebugMessage(-1, -1, FColor::Blue, Velocity.ToString());
+		
 		FVector Delta = FVector(Velocity.X, Velocity.Y, Velocity.Z) * DeltaTime;
-		//FVector Delta = Velocity * DeltaTime;
 
 		if (!Delta.IsNearlyZero(1e-6f))
 		{
@@ -149,7 +120,6 @@ void UGTPawnMovementComponent::UpdateMovement(float DeltaTime)
 			const FQuat Rotation = UpdatedComponent->GetComponentQuat();
 
 			FHitResult Hit(1.f);
-			//MoveUpdatedComponent(Delta, FQuat(0, 0, 0, 0), true, 0, ETeleportType::None);
 			SafeMoveUpdatedComponent(Delta, Rotation, false, Hit);
 
 			if (Hit.IsValidBlockingHit())

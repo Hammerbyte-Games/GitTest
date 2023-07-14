@@ -7,9 +7,6 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GTCharacterMovementComponent.generated.h"
 
-/**
- * 
- */
 UCLASS()
 class GITTEST_API UGTCharacterMovementComponent : public UCharacterMovementComponent
 {
