@@ -67,7 +67,7 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 	{
 		return;
 	}
-	SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PerformMovement);
+	//SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PerformMovement);
 	bTeleportedSinceLastUpdate = UpdatedComponent->GetComponentLocation() != LastUpdateLocation;
 	
 	// no movement if we can't move, or if currently doing physical simulation on UpdatedComponent
@@ -556,7 +556,7 @@ void UGTCharacterMovementComponent::StartNewPhysics(float deltaTime, int32 Itera
 	bMovementInProgress = bSavedMovementInProgress;
 	if ( bDeferUpdateMoveComponent )
 	{
-		SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_SetUpdatedComponent);
+		//SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_SetUpdatedComponent);
 		SetUpdatedComponent(DeferredUpdatedMoveComponent);
 	}
 }
@@ -564,7 +564,7 @@ void UGTCharacterMovementComponent::StartNewPhysics(float deltaTime, int32 Itera
 void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterations)
 {
 	
-	SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking1);
+	//SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking1);
 	if (deltaTime < MIN_TICK_TIME)
 	{
 		return;
@@ -613,7 +613,7 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 	bool bSameNavLocation = false;
 	if (CachedNavLocation.NodeRef != INVALID_NAVNODEREF)
 	{
-		SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking2);
+		//SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking2);
 		if (bProjectNavMeshWalking)
 		{
 			const float DistSq2D = (OldLocation - CachedNavLocation.Location).SizeSquared2D();
@@ -633,7 +633,7 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 		if (bDeltaMoveNearlyZero && bSameNavLocation)
 		{
 			
-			SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking3);
+			//SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking3);
 			if (const INavigationDataInterface* NavData = GetNavData())
 			{
 				if (!NavData->IsNodeRefValid(CachedNavLocation.NodeRef))
@@ -652,7 +652,7 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 	else
 	{
 		
-		SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking4);
+		//SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking4);
 		// Start the trace from the Z location of the last valid trace.
 		// Otherwise if we are projecting our location to the underlying geometry and it's far above or below the navmesh,
 		// we'll follow that geometry's plane out of range of valid navigation.
@@ -674,11 +674,11 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 
 	if (DestNavLocation.NodeRef != INVALID_NAVNODEREF)
 	{
-		SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking5);
+		//SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking5);
 		FVector NewLocation(AdjustedDest.X, AdjustedDest.Y, DestNavLocation.Location.Z);
 		if (bProjectNavMeshWalking)
 		{
-			SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking6);
+			//SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking6);
 			const float TotalCapsuleHeight = CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * 2.0f;
 			const float UpOffset = TotalCapsuleHeight * FMath::Max(0.f, NavMeshProjectionHeightScaleUp);
 			const float DownOffset = TotalCapsuleHeight * FMath::Max(0.f, NavMeshProjectionHeightScaleDown);
@@ -689,7 +689,7 @@ void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterat
 
 		if (!AdjustedDelta.IsNearlyZero())
 		{
-			SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking7);
+			//SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PhysNavWalking7);
 			FHitResult HitResult;
 			FVector OwnerLocation = UpdatedComponent->GetOwner()->GetActorLocation();
 			FRotator NewRotation = UKismetMathLibrary::FindLookAtRotation(FVector(OwnerLocation.X, OwnerLocation.Y, 100), FVector(CachedNavLocation.Location.X, CachedNavLocation.Location.Y, 100));
