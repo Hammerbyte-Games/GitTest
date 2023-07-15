@@ -22,8 +22,14 @@ public:
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 
 	void UpdateMovement(float DeltaTime);
+	/** Special Tick to allow custom server-side functionality on Autonomous Proxies. 
+	 * Called for all remote APs, including APs controlled on Listen Servers such as the hosting player's Character.
+	 * If full server-side control is desired, you may need to override ControlledCharacterMove as well.
+	 */
+	virtual void ServerAutonomousProxyTick(float DeltaSeconds) { }
 
 protected:
+	
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 

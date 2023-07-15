@@ -14,9 +14,6 @@ Super(ObjectInitializer.SetDefaultSubobjectClass<UGTCharacterMovementComponent>(
 	GetMesh()->bUseAttachParentBound = true;
 	
 	GetCharacterMovement()->PrimaryComponentTick.bCanEverTick = false;
-	
-	GetArrowComponent()->bUseAttachParentBound = true;
-	GetArrowComponent()->PrimaryComponentTick.bCanEverTick = false;
 }
 
 void AGTNewCharacter::BeginPlay()
@@ -26,8 +23,6 @@ void AGTNewCharacter::BeginPlay()
 	GetMesh()->bComputeBoundsOnceForGame = true;
 	GetMesh()->bComputeFastLocalBounds = true;
 	
-	GetArrowComponent()->bComputeBoundsOnceForGame = true;
-	GetArrowComponent()->bComputeFastLocalBounds = true;
 	
 	GetRootComponent()->SetShouldUpdatePhysicsVolume(false);
 }

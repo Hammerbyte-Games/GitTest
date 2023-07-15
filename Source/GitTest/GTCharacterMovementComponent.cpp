@@ -9,7 +9,9 @@
 #include "Engine/NetworkObjectList.h"
 #include "GameFramework/Character.h"
 #include "Kismet/GameplayStatics.h"
+#include "ProfilingDebugging/ScopedTimers.h"
 #include "Kismet/KismetMathLibrary.h"
+DECLARE_CYCLE_STAT(TEXT("UGTCharacterMovementComponent PerformMovement"), STAT_UGTCharacterMovementComponent_PerformMovement, STATGROUP_Game);
 
 UGTCharacterMovementComponent::UGTCharacterMovementComponent()
 {
@@ -25,7 +27,7 @@ void UGTCharacterMovementComponent::BeginPlay()
 	TArray<AActor*> Actors;
 	UGameplayStatics::GetAllActorsOfClass(GetWorld(), AGTPawnMovementManager::StaticClass(), Actors);
 
-	if(IsValid(Actors[0]))
+	if(Actors.IsValidIndex(0)&&(Actors[0]))
 	{
 		if(AGTPawnMovementManager* MovementManager = Cast<AGTPawnMovementManager>(Actors[0]))
 		{
@@ -56,7 +58,7 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 	{
 		return;
 	}
-
+	SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_PerformMovement);
 	bTeleportedSinceLastUpdate = UpdatedComponent->GetComponentLocation() != LastUpdateLocation;
 	
 	// no movement if we can't move, or if currently doing physical simulation on UpdatedComponent
@@ -820,10 +822,10 @@ void UGTCharacterMovementComponent::UpdateMovement(float DeltaTime)
 		UpdateDefaultAvoidance();
 	}
 
-	if (bEnablePhysicsInteraction)
-	{
-		ApplyDownwardForce(DeltaTime);
-		ApplyRepulsionForce(DeltaTime);
-	}
+	// if (bEnablePhysicsInteraction)
+	// {
+	// 	ApplyDownwardForce(DeltaTime);
+	// 	ApplyRepulsionForce(DeltaTime);
+	// }
 
 }
