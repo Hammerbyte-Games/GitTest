@@ -4,6 +4,7 @@
 #include "GTNewCharacter.h"
 #include "GTCharacterMovementComponent.h"
 #include "Components/ArrowComponent.h"
+#include "Components/CapsuleComponent.h"
 
 AGTNewCharacter::AGTNewCharacter(const FObjectInitializer& ObjectInitializer) :
 Super(ObjectInitializer.SetDefaultSubobjectClass<UGTCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -22,6 +23,10 @@ void AGTNewCharacter::BeginPlay()
 	
 	GetMesh()->bComputeBoundsOnceForGame = true;
 	GetMesh()->bComputeFastLocalBounds = true;
+	GetCapsuleComponent()->bComputeFastLocalBounds = true;
+	//GetArrowComponent()->bComputeBoundsOnceForGame = true;
+	//GetArrowComponent()->bComputeFastLocalBounds = true;
+	
 	
 	
 	GetRootComponent()->SetShouldUpdatePhysicsVolume(false);

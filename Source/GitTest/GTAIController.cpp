@@ -7,6 +7,7 @@ AGTAIController::AGTAIController()
 {
 	GetRootComponent()->bUseAttachParentBound = true;
 	GetTransformComponent()->bUseAttachParentBound = true;
+ 	PrimaryActorTick.bCanEverTick = false;
 	SetRootComponent(GetTransformComponent());
 }
 
@@ -20,22 +21,22 @@ void AGTAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 
 		// Look toward focus
 		const FVector FocalPoint = GetFocalPoint();
-		if (FAISystem::IsValidLocation(FocalPoint))
-		{
-			NewControlRotation = (FocalPoint - MyPawn->GetPawnViewLocation()).Rotation();
-		}
-		else if (bSetControlRotationFromPawnOrientation)
-		{
-			NewControlRotation = MyPawn->GetActorRotation();
-		}
+		// if (FAISystem::IsValidLocation(FocalPoint))
+		// {
+		// 	NewControlRotation = (FocalPoint - MyPawn->GetPawnViewLocation()).Rotation();
+		// }
+		// else if (bSetControlRotationFromPawnOrientation)
+		// {
+		// 	NewControlRotation = MyPawn->GetActorRotation();
+		// }
 
 		// Don't pitch view unless looking at another pawn
-		if (NewControlRotation.Pitch != 0 && Cast<APawn>(GetFocusActor()) == nullptr)
-		{
-			NewControlRotation.Pitch = 0.f;
-		}
+		// if (NewControlRotation.Pitch != 0 && Cast<APawn>(GetFocusActor()) == nullptr)
+		// {
+		// 	NewControlRotation.Pitch = 0.f;
+		// }
 
-		SetControlRotation(NewControlRotation);
+		//SetControlRotation(NewControlRotation);
 
 		if (bUpdatePawn)
 		{
@@ -43,7 +44,7 @@ void AGTAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 
 			if (CurrentPawnRotation.Equals(NewControlRotation, 1e-3f) == false)
 			{
-				MyPawn->FaceRotation(NewControlRotation, DeltaTime);
+				//MyPawn->FaceRotation(NewControlRotation, DeltaTime);
 			}
 		}
 	}

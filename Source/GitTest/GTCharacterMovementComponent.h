@@ -16,10 +16,15 @@ public:
 	UGTCharacterMovementComponent();
 	virtual void PerformMovement(float DeltaTime) override;
 	virtual void PhysNavWalking(float deltaTime, int32 Iterations) override;
+	virtual bool MoveUpdatedComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit,
+	                                      ETeleportType Teleport) override;
 	virtual void ControlledCharacterMove(const FVector& InputVector, float DeltaSeconds) override;
 	virtual void ApplyRootMotionToVelocity(float deltaTime) override;
 	virtual void CallMovementUpdateDelegate(float DeltaSeconds, const FVector& OldLocation, const FVector& OldVelocity) override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
+	/** changes physics based on MovementMode */
+	virtual void StartNewPhysics(float deltaTime, int32 Iterations) override;
 
 	void UpdateMovement(float DeltaTime);
 	/** Special Tick to allow custom server-side functionality on Autonomous Proxies. 
