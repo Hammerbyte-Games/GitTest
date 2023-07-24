@@ -25,6 +25,7 @@ public:
 	virtual void SetUpdatedComponent(USceneComponent* NewUpdatedComponent) override;
 	/** changes physics based on MovementMode */
 	virtual void StartNewPhysics(float deltaTime, int32 Iterations) override;
+	virtual void SimulatedTick(float DeltaSeconds) override;
 
 	void UpdateMovement(float DeltaTime);
 	/** Special Tick to allow custom server-side functionality on Autonomous Proxies. 

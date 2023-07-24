@@ -120,7 +120,7 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 	{
 		// Scoped updates can improve performance of multiple MoveComponent calls.
 		{
-			//MaybeUpdateBasedMovement(DeltaSeconds);
+			MaybeUpdateBasedMovement(DeltaSeconds);
 
 			// Clean up invalid RootMotion Sources.
 			// This includes RootMotion sources that ended naturally.
@@ -146,23 +146,23 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 	// #endif
 	// 		}
 
-			//OldVelocity = Velocity;
-			//OldLocation = UpdatedComponent->GetComponentLocation();
+			OldVelocity = Velocity;
+			OldLocation = UpdatedComponent->GetComponentLocation();
 
 			//HB CODE
-			//ApplyAccumulatedForces(DeltaSeconds);
+			ApplyAccumulatedForces(DeltaSeconds);
 
 			// Update the character state before we do our movement
 			UpdateCharacterStateBeforeMovement(DeltaSeconds);
 
-			// if (MovementMode == MOVE_NavWalking && bWantsToLeaveNavWalking)
-			// {
-			// 	TryToLeaveNavWalking();
-			// }
+			 if (MovementMode == MOVE_NavWalking && bWantsToLeaveNavWalking)
+			 {
+			 	TryToLeaveNavWalking();
+			 }
 
 			// Character::LaunchCharacter() has been deferred until now.
-			//HandlePendingLaunch();
-			//ClearAccumulatedForces();
+			HandlePendingLaunch();
+			ClearAccumulatedForces();
 
 	// #if ROOT_MOTION_DEBUG
 	// 		if (RootMotionSourceDebug::CVarDebugRootMotionSources.GetValueOnGameThread() == 1)
@@ -317,12 +317,12 @@ void UGTCharacterMovementComponent::PerformMovement(float DeltaSeconds)
 			}
 
 			// Update character state based on change from movement
-			//UpdateCharacterStateAfterMovement(DeltaSeconds);
+			UpdateCharacterStateAfterMovement(DeltaSeconds);
 
-			// if (bAllowPhysicsRotationDuringAnimRootMotion || !HasAnimRootMotion())
-			// {
-			// 	PhysicsRotation(DeltaSeconds);
-			// }
+			 if (bAllowPhysicsRotationDuringAnimRootMotion || !HasAnimRootMotion())
+			 {
+			 	PhysicsRotation(DeltaSeconds);
+			 }
 
 			// Apply Root Motion rotation after movement is complete.
 	// 		if( HasAnimRootMotion() )
@@ -559,6 +559,201 @@ void UGTCharacterMovementComponent::StartNewPhysics(float deltaTime, int32 Itera
 		//SCOPE_CYCLE_COUNTER(STAT_UGTCharacterMovementComponent_SetUpdatedComponent);
 		SetUpdatedComponent(DeferredUpdatedMoveComponent);
 	}
+}
+
+void UGTCharacterMovementComponent::SimulatedTick(float DeltaSeconds)
+{
+	//SCOPE_CYCLE_COUNTER(STAT_CharacterMovementSimulated);
+    	checkSlow(CharacterOwner != nullptr);
+    
+    	// If we are playing a RootMotion AnimMontage.
+    	if (CharacterOwner->IsPlayingNetworkedRootMotionMontage())
+    	{
+    		bWasSimulatingRootMotion = true;
+    		UE_LOG(LogRootMotion, Verbose, TEXT("UCharacterMovementComponent::SimulatedTick"));
+    
+    		// Tick animations before physics.
+    		if( CharacterOwner && CharacterOwner->GetMesh() )
+    		{
+    			TickCharacterPose(DeltaSeconds);
+    
+    			// Make sure animation didn't trigger an event that destroyed us
+    			if (!HasValidData())
+    			{
+    				return;
+    			}
+    		}
+    
+    		const FQuat OldRotationQuat = UpdatedComponent->GetComponentQuat();
+    		const FVector OldLocation = UpdatedComponent->GetComponentLocation();
+    
+    		USkeletalMeshComponent* Mesh = CharacterOwner->GetMesh();
+    		const FVector SavedMeshRelativeLocation = Mesh ? Mesh->GetRelativeLocation() : FVector::ZeroVector;
+    
+    		if( RootMotionParams.bHasRootMotion )
+    		{
+    			SimulateRootMotion(DeltaSeconds, RootMotionParams.GetRootMotionTransform());
+    
+    #if !(UE_BUILD_SHIPPING)
+    			// debug
+    			if (CharacterOwner && false)
+    			{
+    				const FRotator OldRotation = OldRotationQuat.Rotator();
+    				const FRotator NewRotation = UpdatedComponent->GetComponentRotation();
+    				const FVector NewLocation = UpdatedComponent->GetComponentLocation();
+    				DrawDebugCoordinateSystem(GetWorld(), CharacterOwner->GetMesh()->GetComponentLocation() + FVector(0,0,1), NewRotation, 50.f, false);
+    				DrawDebugLine(GetWorld(), OldLocation, NewLocation, FColor::Red, false, 10.f);
+    
+    				UE_LOG(LogRootMotion, Log,  TEXT("UCharacterMovementComponent::SimulatedTick DeltaMovement Translation: %s, Rotation: %s, MovementBase: %s"),
+    					*(NewLocation - OldLocation).ToCompactString(), *(NewRotation - OldRotation).GetNormalized().ToCompactString(), *GetNameSafe(CharacterOwner->GetMovementBase()) );
+    			}
+    #endif // !(UE_BUILD_SHIPPING)
+    		}
+    
+    		// then, once our position is up to date with our animation, 
+    		// handle position correction if we have any pending updates received from the server.
+    		if( CharacterOwner && (CharacterOwner->RootMotionRepMoves.Num() > 0) )
+    		{
+    			CharacterOwner->SimulatedRootMotionPositionFixup(DeltaSeconds);
+    		}
+    
+    		if (!bNetworkSmoothingComplete && (NetworkSmoothingMode == ENetworkSmoothingMode::Linear))
+    		{
+    			// Same mesh with different rotation?
+    			const FQuat NewCapsuleRotation = UpdatedComponent->GetComponentQuat();
+    			if (Mesh == CharacterOwner->GetMesh() && !NewCapsuleRotation.Equals(OldRotationQuat, 1e-6f) && ClientPredictionData)
+    			{
+    				// Smoothing should lerp toward this new rotation target, otherwise it will just try to go back toward the old rotation.
+    				ClientPredictionData->MeshRotationTarget = NewCapsuleRotation;
+    				Mesh->SetRelativeLocationAndRotation(SavedMeshRelativeLocation, CharacterOwner->GetBaseRotationOffset());
+    			}
+    		}
+    	}
+    	else if (CurrentRootMotion.HasActiveRootMotionSources())
+    	{
+    		// We have root motion sources and possibly animated root motion
+    		bWasSimulatingRootMotion = true;
+    		UE_LOG(LogRootMotion, Verbose, TEXT("UCharacterMovementComponent::SimulatedTick"));
+    
+    		// If we have RootMotionRepMoves, find the most recent important one and set position/rotation to it
+    		bool bCorrectedToServer = false;
+    		const FVector OldLocation = UpdatedComponent->GetComponentLocation();
+    		const FQuat OldRotation = UpdatedComponent->GetComponentQuat();
+    		if( CharacterOwner->RootMotionRepMoves.Num() > 0 )
+    		{
+    			// Move Actor back to position of that buffered move. (server replicated position).
+    			FSimulatedRootMotionReplicatedMove& RootMotionRepMove = CharacterOwner->RootMotionRepMoves.Last();
+    			if( CharacterOwner->RestoreReplicatedMove(RootMotionRepMove) )
+    			{
+    				bCorrectedToServer = true;
+    			}
+    			Acceleration = RootMotionRepMove.RootMotion.Acceleration;
+    
+    			CharacterOwner->PostNetReceiveVelocity(RootMotionRepMove.RootMotion.LinearVelocity);
+    			LastUpdateVelocity = RootMotionRepMove.RootMotion.LinearVelocity;
+    
+    			// Convert RootMotionSource Server IDs -> Local IDs in AuthoritativeRootMotion and cull invalid
+    			// so that when we use this root motion it has the correct IDs
+    			ConvertRootMotionServerIDsToLocalIDs(CurrentRootMotion, RootMotionRepMove.RootMotion.AuthoritativeRootMotion, RootMotionRepMove.Time);
+    			RootMotionRepMove.RootMotion.AuthoritativeRootMotion.CullInvalidSources();
+    
+    			// Set root motion states to that of repped in state
+    			CurrentRootMotion.UpdateStateFrom(RootMotionRepMove.RootMotion.AuthoritativeRootMotion, true);
+    
+    			// Clear out existing RootMotionRepMoves since we've consumed the most recent
+    			UE_LOG(LogRootMotion, Log,  TEXT("\tClearing old moves in SimulatedTick (%d)"), CharacterOwner->RootMotionRepMoves.Num());
+    			CharacterOwner->RootMotionRepMoves.Reset();
+    		}
+    
+    		// Update replicated movement mode.
+    		if (bNetworkMovementModeChanged)
+    		{
+    			ApplyNetworkMovementMode(CharacterOwner->GetReplicatedMovementMode());
+    			bNetworkMovementModeChanged = false;
+    		}
+    
+    		// Perform movement
+    		PerformMovement(DeltaSeconds);
+    
+    		// After movement correction, smooth out error in position if any.
+    		if( bCorrectedToServer || CurrentRootMotion.NeedsSimulatedSmoothing() )
+    		{
+    			SmoothCorrection(OldLocation, OldRotation, UpdatedComponent->GetComponentLocation(), UpdatedComponent->GetComponentQuat());
+    		}
+    	}
+    	// Not playing RootMotion AnimMontage
+    	else
+    	{
+    		// if we were simulating root motion, we've been ignoring regular ReplicatedMovement updates.
+    		// If we're not simulating root motion anymore, force us to sync our movement properties.
+    		// (Root Motion could leave Velocity out of sync w/ ReplicatedMovement)
+    		if( bWasSimulatingRootMotion )
+    		{
+    			CharacterOwner->RootMotionRepMoves.Empty();
+    			CharacterOwner->OnRep_ReplicatedMovement();
+    			CharacterOwner->OnRep_ReplicatedBasedMovement();
+    			ApplyNetworkMovementMode(GetCharacterOwner()->GetReplicatedMovementMode());
+    		}
+    
+    		if (CharacterOwner->IsReplicatingMovement() && UpdatedComponent)
+    		{
+    			USkeletalMeshComponent* Mesh = CharacterOwner->GetMesh();
+    			const FVector SavedMeshRelativeLocation = Mesh ? Mesh->GetRelativeLocation() : FVector::ZeroVector; 
+    			const FQuat SavedCapsuleRotation = UpdatedComponent->GetComponentQuat();
+    			const bool bPreventMeshMovement = !bNetworkSmoothingComplete;
+    
+    			// Avoid moving the mesh during movement if SmoothClientPosition will take care of it.
+    			{
+    				const FScopedPreventAttachedComponentMove PreventMeshMovement(bPreventMeshMovement ? Mesh : nullptr);
+    				if (CharacterOwner->IsPlayingRootMotion())
+    				{
+    					// Update replicated movement mode.
+    					if (bNetworkMovementModeChanged)
+    					{
+    						ApplyNetworkMovementMode(CharacterOwner->GetReplicatedMovementMode());
+    						bNetworkMovementModeChanged = false;
+    					}
+    
+    					PerformMovement(DeltaSeconds);
+    				}
+    				else
+    				{
+    					SimulateMovement(DeltaSeconds);
+    				}
+    			}
+    
+    			// With Linear smoothing we need to know if the rotation changes, since the mesh should follow along with that (if it was prevented above).
+    			// This should be rare that rotation changes during simulation, but it can happen when ShouldRemainVertical() changes, or standing on a moving base.
+    			const bool bValidateRotation = bPreventMeshMovement && (NetworkSmoothingMode == ENetworkSmoothingMode::Linear);
+    			if (bValidateRotation && UpdatedComponent)
+    			{
+    				// Same mesh with different rotation?
+    				const FQuat NewCapsuleRotation = UpdatedComponent->GetComponentQuat();
+    				if (Mesh == CharacterOwner->GetMesh() && !NewCapsuleRotation.Equals(SavedCapsuleRotation, 1e-6f) && ClientPredictionData)
+    				{
+    					// Smoothing should lerp toward this new rotation target, otherwise it will just try to go back toward the old rotation.
+    					ClientPredictionData->MeshRotationTarget = NewCapsuleRotation;
+    					Mesh->SetRelativeLocationAndRotation(SavedMeshRelativeLocation, CharacterOwner->GetBaseRotationOffset());
+    				}
+    			}
+    		}
+    
+    		if (bWasSimulatingRootMotion)
+    		{
+    			bWasSimulatingRootMotion = false;
+    		}
+    	}
+    
+    	// Smooth mesh location after moving the capsule above.
+    	if (!bNetworkSmoothingComplete)
+    	{
+    		//SCOPE_CYCLE_COUNTER(STAT_CharacterMovementSmoothClientPosition);
+    		SmoothClientPosition(DeltaSeconds);
+    	}
+    	else
+    	{
+    		//UE_LOG(LogCharacterNetSmoothing, Verbose, TEXT("Skipping network smoothing for %s."), *GetNameSafe(CharacterOwner));
+    	}
 }
 
 void UGTCharacterMovementComponent::PhysNavWalking(float deltaTime, int32 Iterations)
@@ -928,7 +1123,7 @@ void UGTCharacterMovementComponent::UpdateMovement(float DeltaTime)
 			FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
 			if (ClientData && ClientData->bUpdatePosition)
 			{
-				ClientUpdatePositionAfterServerUpdate();
+				//ClientUpdatePositionAfterServerUpdate();
 			}
 		}
 
